@@ -47,6 +47,7 @@ class PriceUpdateSignal(QObject):
     put_buy_strike_price = pyqtSignal(int)
     buy_option_updated = pyqtSignal(tuple)
     sell_option_updated = pyqtSignal(tuple)
+    put_option_updated =  pyqtSignal(tuple)
 
 
 
@@ -144,7 +145,7 @@ class TradingAppQt(QWidget):
 
         self.signals.buy_option_updated.connect(self.buy_option_update)
         self.signals.sell_option_updated.connect(self.sell_option_update)
-
+        self.signals.put_option_updated.connect(self.put_option_update)
     def show_yesterday_close(self,price):
         # print("yesterday_closing_price", price)
         self.yesterday_vix_value_label.setText(f"{price:.2f}")
@@ -232,6 +233,10 @@ class TradingAppQt(QWidget):
             self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
         except Exception as e:
             pass
+    
+    def put_option_update(self,ticker):
+        self.put_buy_labels[2].setText(f"{ticker[0]:.2f}")
+        self.put_buy_labels[3].setText(f"{ticker[1]:.2f}")
 
 
 
@@ -420,32 +425,7 @@ class TradingAppQt(QWidget):
 
         data_layout.setColumnStretch(3, 1)
 
-        # EMA Period Control
-        # ema_frame = QFrame(self)
-        # ema_layout = QHBoxLayout(ema_frame)
-        # ema_layout.setContentsMargins(0, 5, 0, 0)
-        # ema_layout.setSpacing(5)
-        # period_label = QLabel("period :", self)
-        # period_label.setFont(QFont('Segoe UI', 14))
-        # ema_layout.addWidget(period_label)
         
-        # self.ema_period = QLineEdit("50", self)
-        # self.ema_period.setFixedSize(50, 30)
-        # self.ema_period.setAlignment(Qt.AlignCenter)  # type: ignore
-        # self.ema_period.setFont(QFont('Segoe UI', 14))
-        # ema_layout.addWidget(self.ema_period)
-        
-        # min_label = QLabel("min", self)
-        # min_label.setFont(QFont('Segoe UI', 14))
-        # ema_layout.addWidget(min_label)
-        
-        # change_btn_ema = QPushButton("change", self)
-        # change_btn_ema.setObjectName("change_button")
-        # change_btn_ema.clicked.connect(self.update_ema_prices)
-        # ema_layout.addWidget(change_btn_ema)
-        # ema_layout.addStretch()
-        
-        # data_layout.addWidget(ema_frame, 4, 0, 1, 4)
         content_layout.addWidget(data_frame)
 
         # --- Trading Flag Frame ---
@@ -992,69 +972,6 @@ async def fetch_data(ui,mode, loop):
 
 
 
-        # # Extract all option contracts
-        # option_contracts = [detail.contract for detail in details]
-        # print(option_contracts)
-        # # List all available expiration dates and strikes
-        # expirations = sorted(set([opt.lastTradeDateOrContractMonth for opt in option_contracts]))
-        # strikes = sorted(set([opt.strike for opt in option_contracts]))
-
-        # print(f"\nAvailable expiration dates: {expirations}")
-        # print(f"\nAvailable strikes: {strikes}")
-
-        # # Filter options expiring today
-        # today_str = datetime.now().strftime('%Y%m%d')
-        # today_options = [
-        #     opt for opt in option_contracts
-        #     if opt.lastTradeDateOrContractMonth.startswith(today_str)
-        # ]
-
-        # print(f"\nNumber of options expiring today ({today_str}): {len(today_options)}")
-
-        # # Sample output: print details of first 10 options expiring today
-        # print("\nSample options expiring today:")
-        # for opt in today_options[:10]:
-        #     print(f"Symbol: {opt.symbol}, Expiry: {opt.lastTradeDateOrContractMonth}, Strike: {opt.strike}, Right: {opt.right}")
-
-        # option_chain = await ib.reqSecDefOptParamsAsync(spx_contract.symbol, '', spx_contract.secType, spx_contract.conId)
-        # expirations = [opt.expirations for opt in option_chain][0]
-    
-        # # For today’s expiration date, we’ll use the first expiration that matches today's date
-        # todays_expiration = next((exp for exp in expirations if exp.startswith(today)), None)
-        
-        # if todays_expiration is None:
-        #     print(f"No options found for today's expiration: {today}")
-        #     return
-        
-        # # Fetch strikes for the chosen expiration date
-        # strikes = [opt.strikes for opt in option_chain if opt.expirations == [todays_expiration]][0]
-        
-        # # Create Option contracts for Calls and Puts
-        # options = []
-        # for strike in strikes:
-        #     call = Option('SPX', todays_expiration, strike, 'C', 'SMART')
-        #     put = Option('SPX', todays_expiration, strike, 'P', 'SMART')
-        #     options.append(call)
-        #     options.append(put)
-        
-        # # Qualify contracts (to get more details)
-        # ib.qualifyContracts(*options)
-        
-        # # Subscribe to real-time market data for these options
-        # market_data = []
-        # for option in options:
-        #     mkt_data = ib.reqMktData(option, '', False, False)  # Request live market data (not snapshot)
-        #     market_data.append(mkt_data)
-            
-        #     # Attach event listener for real-time updates (delta changes)
-        #     mkt_data.updateEvent += on_market_data_update
-        
-        # def on_market_data_update(msg):
-        #     if msg.field == 21:  # Field 21 corresponds to 'delta' in IBKR
-        #         print(f"Real-Time Delta for {msg.contract.symbol} {msg.contract.lastTradeDateOrContractMonth} {msg.contract.strike} {msg.contract.right}: {msg.value}")
-
-    
-        ######################
 
         
         buy_strike_price = 0
@@ -1073,11 +990,7 @@ async def fetch_data(ui,mode, loop):
             ui.signals.yesterday_close.emit(yesterday_close)
 
 
-        
 
-        
-                # print("ema spx price : ", last_ema)
-                # ui.signals.ema_spx.emit(last_ema)
         async def ema_timer():
             last_ema = await get_spx_ema(ib, spx_contract)
             if last_ema != None:
@@ -1085,18 +998,7 @@ async def fetch_data(ui,mode, loop):
 
 
         
-        # thread = QThread()
-
-        # def thread_function():
-            
-        #     timer = QTimer()
-        #     timer.timeout.connect(ema_timer)
-        #     timer.start(1000)  # 1 second timer
-        #     thread.exec_()
-
-        
-        # thread.run = thread_function
-        # thread.start()
+      
         async def ema_spx_task():
             spx_historical = await ib.reqHistoricalDataAsync(
                 spx_contract,
@@ -1192,17 +1094,28 @@ async def fetch_data(ui,mode, loop):
                     # print(ticker_put)  
 
                 ticker_put[strike].updateEvent += on_put_delta
+
+       
+
+
+
         current_detal = dict()
+        put_strike = 0
         def on_put_delta(ticker):
-            nonlocal current_detal
+            nonlocal current_detal,put_strike
             if ticker.bidGreeks != None and ticker.bidGreeks.delta !=None:
                 if last_delta[ticker.contract.strike] !=  ticker.bidGreeks.delta:
-                    print(last_delta)
+                    # print(last_delta)
                     closest_key = min(last_delta, key=lambda k: abs(last_delta[k] - (-0.3)))
                     closest_value = last_delta[closest_key]
-                    print(closest_key,closest_value)
-                    ui.signals.put_buy_strike_price.emit(int(closest_key))
+                    # print(closest_key,closest_value)
+                    put_strike=int(closest_key)
+                    ui.signals.put_buy_strike_price.emit(put_strike)
+                    
                     last_delta[ticker.contract.strike] = ticker.bidGreeks.delta
+
+            if int(ticker.contract.strike) == put_strike :
+                ui.signals.put_option_updated.emit((ticker.bid,ticker.ask))
             
            
                   
