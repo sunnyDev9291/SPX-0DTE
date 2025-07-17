@@ -44,8 +44,10 @@ class PriceUpdateSignal(QObject):
     ema_spx = pyqtSignal(float)
     buy_strike_price = pyqtSignal(int)
     sell_strike_price = pyqtSignal(int)
+    put_buy_strike_price = pyqtSignal(int)
     buy_option_updated = pyqtSignal(tuple)
     sell_option_updated = pyqtSignal(tuple)
+
 
 
 
@@ -137,6 +139,9 @@ class TradingAppQt(QWidget):
         self.signals.buy_strike_price.connect(self.update_buy_strike_price)
         self.signals.sell_strike_price.connect(self.update_sell_strike_price)
         
+        self.signals.put_buy_strike_price.connect(self.update_put_buy_strike_price)
+        
+
         self.signals.buy_option_updated.connect(self.buy_option_update)
         self.signals.sell_option_updated.connect(self.sell_option_update)
 
@@ -173,6 +178,9 @@ class TradingAppQt(QWidget):
     def update_buy_strike_price(self,price):
         # print("buy strike price : ", price)
         self.buy_labels[1].setText(f"{price:.2f}")
+
+    def update_put_buy_strike_price(self,price):
+        self.put_buy_labels[1].setText(f"{price:.2f}")    
     
     def update_sell_strike_price(self,price):
         # print("sell strike price : ", price)
@@ -1129,14 +1137,20 @@ async def fetch_data(ui,mode, loop):
                     lastTradeDateOrContractMonth=today,
                     strike=buy_strike_price,
                     right='C',
-                    exchange='CBOE'
+                    exchange='CBOE',
+                    currency='USD',
+                    tradingClass='SPXW',   # <-- add this
+                    multiplier='100'
                 )
                 sell_option_contract = Option(
                     symbol='SPX',
                     lastTradeDateOrContractMonth=today,
                     strike=sell_strike_price,
                     right='C',
-                    exchange='CBOE'
+                    exchange='CBOE',
+                    currency='USD',
+                    tradingClass='SPXW',   # <-- add this
+                    multiplier='100'
                 )
                 buy_option_detail = await ib.reqContractDetailsAsync(buy_option_contract)
                 sell_option_detail = await ib.reqContractDetailsAsync(sell_option_contract)
@@ -1166,7 +1180,10 @@ async def fetch_data(ui,mode, loop):
                                 lastTradeDateOrContractMonth=today,
                                 strike=strike,
                                 right='P',
-                                exchange='CBOE'
+                                exchange='CBOE',
+                                currency='USD',
+                                tradingClass='SPXW',   # <-- add this
+                                multiplier='100'
                             )
                 await ib.qualifyContractsAsync(put_option_contract)
                 if hasattr(ticker_put,str(strike)):
@@ -1183,7 +1200,8 @@ async def fetch_data(ui,mode, loop):
                     print(last_delta)
                     closest_key = min(last_delta, key=lambda k: abs(last_delta[k] - (-0.3)))
                     closest_value = last_delta[closest_key]
-                    # print(closest_key,closest_value)
+                    print(closest_key,closest_value)
+                    ui.signals.put_buy_strike_price.emit(int(closest_key))
                     last_delta[ticker.contract.strike] = ticker.bidGreeks.delta
             
            
