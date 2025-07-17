@@ -18,6 +18,8 @@ import threading
 import numpy
 import bisect
 #second
+#oka
+
 
 
 
