@@ -509,7 +509,7 @@ class TradingAppQt(QWidget):
         waiting_limit_label.setFont(control_font)
         controls_layout.addWidget(waiting_limit_label, 2, 0)
 
-        self.w_entry = QLineEdit("20", self)
+        self.w_entry = QLineEdit("40", self)
         self.w_entry.setFixedSize(40, 32)
         self.w_entry.setAlignment(Qt.AlignCenter)  # type: ignore
         self.w_entry.setFont(control_font)
@@ -524,7 +524,7 @@ class TradingAppQt(QWidget):
         max_attempt_label.setFont(control_font)
         controls_layout.addWidget(max_attempt_label, 3, 0)
         
-        self.a_entry = QLineEdit("5", self)
+        self.a_entry = QLineEdit("10", self)
         self.a_entry.setFixedSize(40, 32)
         self.a_entry.setAlignment(Qt.AlignCenter)  # type: ignore
         self.a_entry.setFont(control_font)
@@ -546,7 +546,7 @@ class TradingAppQt(QWidget):
         qty_label.setFont(control_font)
         controls_layout.addWidget(qty_label, 3, 5)
 
-        self.qty_entry = QLineEdit("2", self)
+        self.qty_entry = QLineEdit("1", self)
         self.qty_entry.setFixedWidth(60)
         self.qty_entry.setFixedHeight(32)
         self.qty_entry.setAlignment(Qt.AlignCenter)  # type: ignore
