@@ -31,6 +31,7 @@ buy_option_contract = None
 sell_option_contract = None
 sell_option_detail = None
 buy_option_detail = None
+put_buy_option_detail = None
 
 
 if platform.system() == 'Windows':
@@ -193,10 +194,10 @@ class TradingAppQt(QWidget):
         self.buy_labels[2].setText(f"{ticker[0]:.2f}")
         self.buy_labels[3].setText(f"{ticker[1]:.2f}")
         try:
-            spread_bid = ticker[0] - float(self.sell_labels[3].text())
+            spread_bid = ticker[0] - float(self.sell_labels[3].text()) + float(self.put_buy_labels[2].text())
             self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
 
-            spread_ask = ticker[1] - float(self.sell_labels[2].text())
+            spread_ask = ticker[1] - float(self.sell_labels[2].text()) + float(self.put_buy_labels[3].text())
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
 
             arr = numpy.arange(spread_bid, spread_ask+0.05, 0.05)
@@ -218,10 +219,10 @@ class TradingAppQt(QWidget):
         self.sell_labels[3].setText(f"{ticker[1]:.2f}")
 
         try:
-            spread_bid = float(self.buy_labels[2].text()) - ticker[1]
+            spread_bid = float(self.buy_labels[2].text()) - ticker[1] + float(self.put_buy_labels[2].text())
             self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
 
-            spread_ask = float(self.buy_labels[3].text()) - ticker[0]
+            spread_ask = float(self.buy_labels[3].text()) - ticker[0]  + float(self.put_buy_labels[3].text())
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
 
             arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
@@ -238,6 +239,24 @@ class TradingAppQt(QWidget):
     def put_option_update(self,ticker):
         self.put_buy_labels[2].setText(f"{ticker[0]:.2f}")
         self.put_buy_labels[3].setText(f"{ticker[1]:.2f}")
+
+        try:
+            spread_bid = float(self.buy_labels[2].text()) - float(self.sell_labels[3].text()) + ticker[0]
+            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
+
+            spread_ask = float(self.buy_labels[3].text()) - float(self.sell_labels[2].text()) + ticker[1]
+            self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+
+            arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
+            mid_index = 0
+            if len(arr) % 2 != 0:
+                mid_index = len(arr) // 2
+            else:
+                mid_index = len(arr) // 2 - 1   
+            self.midpoint = midpoint = round(arr[mid_index],2)
+            self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
+        except Exception as e:
+            pass
 
 
 
@@ -657,7 +676,7 @@ class TradingAppQt(QWidget):
         # Table Rows
         buy_data = ("Call Buy", "", "", "")
         sell_data = ("Call Sell(30 ↑)", "", "", "")
-        put_buy_data = ("Put Buy(closest to -0.3)", "", "", "")
+        put_buy_data = ("Put Buy(delta -0.3)", "", "", "")
         call_spread = ("Final Spread", "", "", "")
 
         buy_layout, buy_labels = self.create_trade_row(buy_data, is_odd=False)
@@ -868,38 +887,6 @@ class TradingAppQt(QWidget):
                 
 
     
-    # def update_market_prices(self):
-    #     self.ib.sleep(0.3)
-    #     try:
-    #         if hasattr(self, 'current_vix_value_label'):
-    #             self.current_vix_value_label.setText(f": {self.get_current_vix()}")
-    #             if self.yesterday_vix > self.current_vix:
-    #                 self.current_vix_value_label.setStyleSheet("color: #43B581; font-weight: bold;")
-    #                 self.trade_flag = True
-    #             else:
-    #                 self.current_vix_value_label.setStyleSheet("color: #ED4245; font-weight: bold;")
-    #                 self.trade_flag = False
-    #         if hasattr(self, 'current_spx_value_label'):
-    #             self.current_spx_value_label.setText(f": {self.get_current_spx()}")
-    #             if self.current_spx > self.spx_ema:
-    #                 self.current_spx_value_label.setStyleSheet("color: #43B581; font-weight: bold;")
-    #                 self.trade_flag = True
-    #             else:
-    #                 self.current_spx_value_label.setStyleSheet("color: #ED4245; font-weight: bold;")
-    #                 self.trade_flag = False
-            
-    #         self.get_buy_sell_strike()
-            
-    #         # Update trading flag label
-    #         if hasattr(self, 'trading_flag_label'):
-    #             if self.trade_flag:
-    #                 self.trading_flag_label.setText("Trading flag : <b style='color:#43B581;'>Please trade</b>")
-    #             else:
-    #                 self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>Don't trade</b>")
-    #     except Exception as e:
-    #         print(f"Error updating market prices: {e}")
-
-
 
 async def get_yesterday_close(ib, contract):
     # Fetch 5 or more days to be safe for weekends/holidays
@@ -1103,9 +1090,10 @@ async def fetch_data(ui,mode, loop):
         current_detal = dict()
         put_strike = 0
         def on_put_delta(ticker):
+            # print("->",ticker) bidGreeks, askGreeks modelGreeks
             nonlocal current_detal,put_strike
-            if ticker.bidGreeks != None and ticker.bidGreeks.delta !=None:
-                if last_delta[ticker.contract.strike] !=  ticker.bidGreeks.delta:
+            if ticker.modelGreeks != None and ticker.modelGreeks.delta !=None:
+                if last_delta[ticker.contract.strike] !=  ticker.modelGreeks.delta:
                     # print(last_delta)
                     closest_key = min(last_delta, key=lambda k: abs(last_delta[k] - (-0.3)))
                     closest_value = last_delta[closest_key]
@@ -1113,7 +1101,7 @@ async def fetch_data(ui,mode, loop):
                     put_strike=int(closest_key)
                     ui.signals.put_buy_strike_price.emit(put_strike)
                     
-                    last_delta[ticker.contract.strike] = ticker.bidGreeks.delta
+                    last_delta[ticker.contract.strike] = ticker.modelGreeks.delta
 
             if int(ticker.contract.strike) == put_strike :
                 ui.signals.put_option_updated.emit((ticker.bid,ticker.ask))
