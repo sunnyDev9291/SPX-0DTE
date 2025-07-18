@@ -788,10 +788,11 @@ class TradingAppQt(QWidget):
             print("tt")
             buy_leg = 0
             sell_leg = 0
+            put_buy_leg = 0
             if buy_option_detail is not None:
                 if buy_option_detail and buy_option_detail[0].contract is not None:
                     buy_leg = buy_option_detail[0].contract.conId
-                    print(buy_leg)
+                    print("buy-->",buy_leg)
                 else:
                     print("Buy contract details not found!")
                     return
@@ -799,12 +800,23 @@ class TradingAppQt(QWidget):
             if sell_option_detail is not None:
                 if sell_option_detail and sell_option_detail[0].contract is not None:
                     sell_leg = sell_option_detail[0].contract.conId
+                    print("sell-->",sell_leg)
                 else:
                     print("Sell contract details not found!")
                     return
+            
+            if put_buy_option_detail is not None:
+                if put_buy_option_detail and put_buy_option_detail[0].contract is not None:
+                    put_buy_leg = put_buy_option_detail[0].contract.conId
+                    print("put-->",put_buy_leg)
+                else:
+                    print("Put Buy contract details not found!")
+                    return
+                
             legs = [
                 ComboLeg(conId=buy_leg, ratio=1, action='BUY', exchange='CBOE'),
-                ComboLeg(conId=sell_leg, ratio=1, action='SELL', exchange='CBOE')
+                ComboLeg(conId=sell_leg, ratio=1, action='SELL', exchange='CBOE'),
+                ComboLeg(conId=put_buy_leg, ratio=1, action='BUY', exchange='CBOE')
             ]
             combo = Contract()
             combo.symbol = 'SPX'
@@ -821,12 +833,15 @@ class TradingAppQt(QWidget):
             max_attempt = int(self.a_entry.text())
             
             if first:
+                print(self.midpoint)
+
                 order = LimitOrder('BUY',qty , self.midpoint)
                 # order = MarketOrder('BUY',qty)
 
                 self.remain_attempt = max_attempt;
                 self.remain_waiting_time = self.waiting_time;
             else:
+                print(self.midpoint)
                 order = LimitOrder('BUY',qty , self.midpoint)
                 # order = MarketOrder('BUY',qty)
                 # time.sleep(3)
@@ -1027,20 +1042,14 @@ async def fetch_data(ui,mode, loop):
                     lastTradeDateOrContractMonth=today,
                     strike=buy_strike_price,
                     right='C',
-                    exchange='CBOE',
-                    currency='USD',
-                    tradingClass='SPXW',   # <-- add this
-                    multiplier='100'
+                    exchange='CBOE'
                 )
                 sell_option_contract = Option(
                     symbol='SPX',
                     lastTradeDateOrContractMonth=today,
                     strike=sell_strike_price,
                     right='C',
-                    exchange='CBOE',
-                    currency='USD',
-                    tradingClass='SPXW',   # <-- add this
-                    multiplier='100'
+                    exchange='CBOE'
                 )
                 buy_option_detail = await ib.reqContractDetailsAsync(buy_option_contract)
                 sell_option_detail = await ib.reqContractDetailsAsync(sell_option_contract)
@@ -1060,6 +1069,7 @@ async def fetch_data(ui,mode, loop):
         last_delta = dict()
         ticker_put = dict()
         async def efficient_option_task(efficient_strikes):
+            global put_buy_option_detail
             nonlocal last_delta,ticker_put
             print(efficient_strikes)
             for strike in efficient_strikes:
@@ -1070,11 +1080,10 @@ async def fetch_data(ui,mode, loop):
                                 lastTradeDateOrContractMonth=today,
                                 strike=strike,
                                 right='P',
-                                exchange='CBOE',
-                                currency='USD',
-                                tradingClass='SPXW',   # <-- add this
-                                multiplier='100'
+                                exchange='CBOE'
                             )
+                put_buy_option_detail = await ib.reqContractDetailsAsync(put_option_contract)
+                
                 await ib.qualifyContractsAsync(put_option_contract)
                 if hasattr(ticker_put,str(strike)):
                     ticker_put[strike].updateEvent.clear()
