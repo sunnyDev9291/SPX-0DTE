@@ -792,7 +792,7 @@ class TradingAppQt(QWidget):
             if buy_option_detail is not None:
                 if buy_option_detail and buy_option_detail[0].contract is not None:
                     buy_leg = buy_option_detail[0].contract.conId
-                    print("buy-->",buy_leg)
+                    print("buy-->",buy_option_detail)
                 else:
                     print("Buy contract details not found!")
                     return
@@ -800,7 +800,7 @@ class TradingAppQt(QWidget):
             if sell_option_detail is not None:
                 if sell_option_detail and sell_option_detail[0].contract is not None:
                     sell_leg = sell_option_detail[0].contract.conId
-                    print("sell-->",sell_leg)
+                    print("sell-->",sell_option_detail)
                 else:
                     print("Sell contract details not found!")
                     return
@@ -808,7 +808,7 @@ class TradingAppQt(QWidget):
             if put_buy_option_detail is not None:
                 if put_buy_option_detail and put_buy_option_detail[0].contract is not None:
                     put_buy_leg = put_buy_option_detail[0].contract.conId
-                    print("put-->",put_buy_leg)
+                    print("put-->",put_buy_option_detail)
                 else:
                     print("Put Buy contract details not found!")
                     return
@@ -842,6 +842,7 @@ class TradingAppQt(QWidget):
                 self.remain_waiting_time = self.waiting_time;
             else:
                 print(self.midpoint)
+
                 order = LimitOrder('BUY',qty , self.midpoint)
                 # order = MarketOrder('BUY',qty)
                 # time.sleep(3)
@@ -1098,6 +1099,20 @@ async def fetch_data(ui,mode, loop):
 
         current_detal = dict()
         put_strike = 0
+
+        async def fill_put_option(put_strike):
+            global put_buy_option_detail
+            today = datetime.now().strftime('%Y%m%d')
+            put_option_contract = Option(
+                                symbol='SPX',
+                                lastTradeDateOrContractMonth=today,
+                                strike=put_strike,
+                                right='P',
+                                exchange='CBOE'
+                            )
+            put_buy_option_detail = await ib.reqContractDetailsAsync(put_option_contract)
+
+
         def on_put_delta(ticker):
             # print("->",ticker) bidGreeks, askGreeks modelGreeks
             nonlocal current_detal,put_strike
@@ -1108,6 +1123,8 @@ async def fetch_data(ui,mode, loop):
                     closest_value = last_delta[closest_key]
                     # print(closest_key,closest_value)
                     put_strike=int(closest_key)
+                    asyncio.create_task(fill_put_option(put_strike))
+                    
                     ui.signals.put_buy_strike_price.emit(put_strike)
                     
                     last_delta[ticker.contract.strike] = ticker.modelGreeks.delta
