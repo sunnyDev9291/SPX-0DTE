@@ -397,13 +397,14 @@ class TradingAppQt(QWidget):
         top_layout.setContentsMargins(0, 0, 0, 0)
         status_text = "connected" if connected else "disconnected"
         status_color = "#43B581" if connected else "#ED4245"
-        # self.api_status = QLabel(f"API Status : <b style='color:{status_color};'>{status_text}</b>", self)
-        # self.api_status.setFont(QFont('Segoe UI', 14))
+        self.api_status = QLabel(f"API Status : <b style='color:{status_color};'>{status_text}</b>", self)
+        self.api_status.setFont(QFont('Segoe UI', 14))
         
         self.current_time = QLabel(self)
         self.current_time.setFont(QFont('Segoe UI', 14))
         
         # top_layout.addWidget(self.api_status)
+        top_layout.addWidget(self.api_status)
         top_layout.addStretch()
         top_layout.addWidget(self.current_time)
         content_layout.addWidget(top_frame)
@@ -584,9 +585,9 @@ class TradingAppQt(QWidget):
         log_frame.setObjectName("bordered_frame")
         log_layout = QVBoxLayout(log_frame)
         if connected:
-            self.log_text = QTextEdit("API Status :connected", self)
+            self.log_text = QTextEdit("", self)
         else:
-            self.log_text = QTextEdit("API Status :disconnected", self) 
+            self.log_text = QTextEdit("", self) 
         self.log_text.setFont(QFont('Segoe UI', 8))
         self.log_text.setStyleSheet("border: none; background-color: #2C2F33; color: #99AAB5;")
         log_layout.addWidget(self.log_text)
@@ -637,6 +638,11 @@ class TradingAppQt(QWidget):
         """Updates the time label with the current date and time."""
         current_time_str = "current time : " + QDateTime.currentDateTime().toString('hh:mm:ss AP MMMM dd, yyyy')
         self.current_time.setText(current_time_str)
+        # print(ib.isConnected())
+        status_text = "connected" if ib.isConnected() else "disconnected"
+        status_color = "#43B581" if ib.isConnected() else "#ED4245"
+        print(status_text)
+        self.api_status.setText(f"API Status : <b style='color:{status_color};'>{status_text}</b>")
 
     # def update_usd_portfolio(self):
     #     # Get USD portfolio value from IB account values
