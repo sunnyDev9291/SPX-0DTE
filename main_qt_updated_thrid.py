@@ -146,7 +146,9 @@ class TradingAppQt(QWidget):
         self.buy_labels[1].setText(f"{price:.2f}")
 
     def update_put_buy_strike_price(self,price):
-        self.put_buy_labels[1].setText(f"{price:.2f}")    
+        self.put_buy_labels[1].setText(f"{price:.2f}")   
+        lower_price = price - 50 
+        self.put_sell_labels[1].setText(f"{lower_price:.2f}")    
     
     def update_sell_strike_price(self,price):
         self.sell_labels[1].setText(f"{price:.2f}")
@@ -353,7 +355,7 @@ class TradingAppQt(QWidget):
             ("Current VIX : "   , " "),
             ("Yesterday VIX : " , " "),
             ("Current SPX : "   , " "),
-            ("SPX EMA in 50 min", " ")
+            ("SPX EMA in 30 min", " ")
         ]
 
         for i, (text, value) in enumerate(labels_data):
@@ -561,20 +563,24 @@ class TradingAppQt(QWidget):
         # Table Rows
         buy_data = ("Call Buy", "", "", "")
         sell_data = ("Call Sell(30 ↑)", "", "", "")
-        put_buy_data = ("Put Buy(delta -0.3)", "", "", "")
+        put_buy_data = ("Put sell(delta -0.25)", "", "", "")
+        put_sell_data = ("Put buy( -50 ↓)", "", "", "")
         call_spread = ("Final Spread", "", "", "")
 
         buy_layout, buy_labels = self.create_trade_row(buy_data, is_odd=False)
         sell_layout, sell_labels = self.create_trade_row(sell_data, is_odd=False)
         put_buy_layout, put_buy_labels = self.create_trade_row(put_buy_data, is_odd=False)
+        put_sell_layout, put_sell_labels = self.create_trade_row(put_sell_data, is_odd=False)
         call_spread_layout, call_spread_labels = self.create_trade_row(call_spread, is_odd=False)
         self.buy_labels = buy_labels
         self.sell_labels = sell_labels
         self.put_buy_labels = put_buy_labels
+        self.put_sell_labels = put_sell_labels
         self.call_spread_labels = call_spread_labels
         self.table_layout.addWidget(buy_layout)
         self.table_layout.addWidget(sell_layout)
         self.table_layout.addWidget(put_buy_layout)
+        self.table_layout.addWidget(put_sell_layout)
         self.table_layout.addWidget(call_spread_layout)
 
         return table_frame
@@ -798,7 +804,7 @@ async def get_spx_ema(ib,contract):
                 spx_df = pd.DataFrame({'price':[
                     bar.close for bar in spx_historical
                 ]})
-                spx_df['ema'] = spx_df['price'].ewm(span=50, adjust=False).mean()
+                spx_df['ema'] = spx_df['price'].ewm(span=30, adjust=False).mean()
                 last_ema = spx_df['ema'].iloc[-1]
                 return last_ema
             return None
@@ -862,7 +868,7 @@ async def fetch_data(ui,mode, loop):
                 spx_df = pd.DataFrame({
                     'price': [bar.close for bar in spx_historical]
                 })
-                spx_df['ema'] = spx_df['price'].ewm(span=50, adjust=False).mean()
+                spx_df['ema'] = spx_df['price'].ewm(span=30, adjust=False).mean()
                 last_ema = spx_df['ema'].iloc[-1]
                 # print("ema_spx:", last_ema)
                 ui.signals.ema_spx.emit(last_ema)
@@ -956,7 +962,7 @@ async def fetch_data(ui,mode, loop):
             if ticker.modelGreeks != None and ticker.modelGreeks.delta !=None:
                 if last_delta[ticker.contract.strike] !=  ticker.modelGreeks.delta:
                     
-                    closest_key = min(last_delta, key=lambda k: abs(last_delta[k] - (-0.3)))
+                    closest_key = min(last_delta, key=lambda k: abs(last_delta[k] - (-0.25)))
                     closest_value = last_delta[closest_key]
                     
                     put_strike=int(closest_key)
