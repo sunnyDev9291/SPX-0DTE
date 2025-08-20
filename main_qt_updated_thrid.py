@@ -24,6 +24,7 @@ sell_option_contract = None
 sell_option_detail = None
 buy_option_detail = None
 put_buy_option_detail = None
+put_second_option_detail = None
 
 if platform.system() == 'Windows':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -39,6 +40,8 @@ class PriceUpdateSignal(QObject):
     buy_option_updated = pyqtSignal(tuple)
     sell_option_updated = pyqtSignal(tuple)
     put_option_updated =  pyqtSignal(tuple)
+    put_second_updated = pyqtSignal(tuple)
+
 
 class TwoRadioDialog(QDialog):
     def __init__(self, parent=None):
@@ -121,6 +124,8 @@ class TradingAppQt(QWidget):
         self.signals.buy_option_updated.connect(self.buy_option_update)
         self.signals.sell_option_updated.connect(self.sell_option_update)
         self.signals.put_option_updated.connect(self.put_option_update)
+        self.signals.put_second_updated.connect(self.put_second_update)
+
     def show_yesterday_close(self,price):
         self.yesterday_vix_value_label.setText(f"{price:.2f}")
 
@@ -142,6 +147,8 @@ class TradingAppQt(QWidget):
         else:
             self.trade_flag1 = False
     
+    
+    
     def update_buy_strike_price(self,price):
         self.buy_labels[1].setText(f"{price:.2f}")
 
@@ -156,48 +163,48 @@ class TradingAppQt(QWidget):
     def buy_option_update(self,ticker):
         self.buy_labels[2].setText(f"{ticker[0]:.2f}")
         self.buy_labels[3].setText(f"{ticker[1]:.2f}")
-        try:
-            spread_bid = ticker[0] - float(self.sell_labels[3].text()) + float(self.put_buy_labels[2].text())
-            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
-            spread_ask = ticker[1] - float(self.sell_labels[2].text()) + float(self.put_buy_labels[3].text())
-            self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
-            arr = numpy.arange(spread_bid, spread_ask+0.05, 0.05)
-            mid_index = 0
-            if len(arr)%2 != 0:
-                mid_index = len(arr) // 2
-            else:
-                mid_index = len(arr) //2 - 1 
-            self.midpoint = midpoint = round(arr[mid_index],2)
-            self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
-        except Exception as e:
-            pass
+        # try:
+        #     spread_bid = ticker[0] - float(self.sell_labels[3].text()) + float(self.put_buy_labels[2].text())
+        #     self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
+        #     spread_ask = ticker[1] - float(self.sell_labels[2].text()) + float(self.put_buy_labels[3].text())
+        #     self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+        #     arr = numpy.arange(spread_bid, spread_ask+0.05, 0.05)
+        #     mid_index = 0
+        #     if len(arr)%2 != 0:
+        #         mid_index = len(arr) // 2
+        #     else:
+        #         mid_index = len(arr) //2 - 1 
+        #     self.midpoint = midpoint = round(arr[mid_index],2)
+        #     self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
+        # except Exception as e:
+        #     pass
     def sell_option_update(self,ticker):
         self.sell_labels[2].setText(f"{ticker[0]:.2f}")
         self.sell_labels[3].setText(f"{ticker[1]:.2f}")
-        try:
-            spread_bid = float(self.buy_labels[2].text()) - ticker[1] + float(self.put_buy_labels[2].text())
-            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
-            spread_ask = float(self.buy_labels[3].text()) - ticker[0]  + float(self.put_buy_labels[3].text())
-            self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
-            arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
-            mid_index = 0
-            if len(arr) % 2 != 0:
-                mid_index = len(arr) // 2
-            else:
-                mid_index = len(arr) // 2 - 1   
-            self.midpoint = midpoint = round(arr[mid_index],2)
-            self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
-        except Exception as e:
-            pass
+        # try:
+        #     spread_bid = float(self.buy_labels[2].text()) - ticker[1] + float(self.put_buy_labels[2].text())
+        #     self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
+        #     spread_ask = float(self.buy_labels[3].text()) - ticker[0]  + float(self.put_buy_labels[3].text())
+        #     self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+        #     arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
+        #     mid_index = 0
+        #     if len(arr) % 2 != 0:
+        #         mid_index = len(arr) // 2
+        #     else:
+        #         mid_index = len(arr) // 2 - 1   
+        #     self.midpoint = midpoint = round(arr[mid_index],2)
+        #     self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
+        # except Exception as e:
+        #     pass
     
     def put_option_update(self,ticker):
         self.put_buy_labels[2].setText(f"{ticker[0]:.2f}")
         self.put_buy_labels[3].setText(f"{ticker[1]:.2f}")
         try:
-            spread_bid = float(self.buy_labels[2].text()) - float(self.sell_labels[3].text()) + ticker[0]
-            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
-            spread_ask = float(self.buy_labels[3].text()) - float(self.sell_labels[2].text()) + ticker[1]
+            spread_ask = - ticker[0] + float(self.put_sell_labels[3].text())
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+            spread_bid =  -ticker[1] + float(self.put_sell_labels[2].text())
+            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
             arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
             mid_index = 0
             if len(arr) % 2 != 0:
@@ -208,6 +215,27 @@ class TradingAppQt(QWidget):
             self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
         except Exception as e:
             pass
+
+    def put_second_update(self,ticker):
+        self.put_sell_labels[2].setText(f"{ticker[0]:.2f}")
+        self.put_sell_labels[3].setText(f"{ticker[1]:.2f}")
+        try:
+            spread_ask = - float(self.put_buy_labels[2].text()) + ticker[1]
+            self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+            spread_bid = - float(self.put_buy_labels[3].text()) + ticker[0]
+            self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
+            arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
+            mid_index = 0
+            if len(arr) % 2 != 0:
+                mid_index = len(arr) // 2
+            else:
+                mid_index = len(arr) // 2 - 1   
+            print("arr:",spread_bid)
+            self.midpoint = midpoint = round(arr[mid_index],2)
+            self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
+        except Exception as e:
+            pass
+        
 
     def init_ui(self):
         global connected
@@ -675,6 +703,7 @@ class TradingAppQt(QWidget):
             buy_leg = 0
             sell_leg = 0
             put_buy_leg = 0
+            put_second_leg = 0
             if buy_option_detail is not None:
                 if buy_option_detail and buy_option_detail[0].contract is not None:
                     buy_leg = buy_option_detail[0].contract.conId
@@ -699,10 +728,17 @@ class TradingAppQt(QWidget):
                     print("Put Buy contract details not found!")
                     return
                 
+            if put_second_option_detail is not None:
+                if put_second_option_detail and put_second_option_detail[0].contract is not None:
+                    put_second_leg = put_second_option_detail[0].contract.conId
+                    print("put second-->",put_second_option_detail)
+                else:
+                    print("Put second contract details not found!")
+                    return
+                
             legs = [
-                ComboLeg(conId=buy_leg, ratio=1, action='BUY', exchange='CBOE'),
-                ComboLeg(conId=sell_leg, ratio=1, action='SELL', exchange='CBOE'),
-                ComboLeg(conId=put_buy_leg, ratio=1, action='BUY', exchange='CBOE')
+                ComboLeg(conId=put_buy_leg, ratio=1, action='SELL', exchange='CBOE'),
+                ComboLeg(conId=put_second_leg, ratio=1, action='BUY', exchange='CBOE')
             ]
             combo = Contract()
             combo.symbol = 'SPX'
@@ -877,6 +913,27 @@ async def fetch_data(ui,mode, loop):
             asyncio.create_task(ema_spx_task())
         ticker_buy = None
         ticker_sell = None
+        ticker_put_second = None
+
+        async def put_second_task(lower_price):
+            global put_second_option_detail
+            nonlocal ticker_put_second
+            today = datetime.now().strftime('%Y%m%d')
+            put_second_contract = Option(
+                    symbol='SPX',
+                    lastTradeDateOrContractMonth=today,
+                    strike=lower_price,
+                    right='P',
+                    exchange='CBOE'
+            )
+            put_second_option_detail = await ib.reqContractDetailsAsync(put_second_contract)
+            await ib.qualifyContractsAsync(put_second_contract)
+            if ticker_put_second is not None:
+                ticker_put_second.updateEvent.clear()
+            ticker_put_second = ib.reqMktData(put_second_contract)
+            ticker_put_second.updateEvent += on_put_second_update
+
+
         async def strike_options_task(spx_price):
             
             global buy_option_contract,sell_option_contract,buy_option_detail,sell_option_detail
@@ -967,6 +1024,8 @@ async def fetch_data(ui,mode, loop):
                     
                     put_strike=int(closest_key)
                     asyncio.create_task(fill_put_option(put_strike))
+                    lower_price = put_strike- 50
+                    asyncio.create_task(put_second_task(lower_price))
                     
                     ui.signals.put_buy_strike_price.emit(put_strike)
                     
@@ -1002,6 +1061,11 @@ async def fetch_data(ui,mode, loop):
             ui.signals.buy_option_updated.emit((ticker.bid,ticker.ask))
         def on_sell_update(ticker):
             ui.signals.sell_option_updated.emit((ticker.bid,ticker.ask))
+        
+        def on_put_second_update(ticker):
+            ui.signals.put_second_updated.emit((ticker.bid,ticker.ask))
+
+
         ticker_spx.updateEvent += on_spx_update
         ticker_vix.updateEvent += on_vix_update
         buy_ticker = ib.reqMktData(buy_option_contract, '', False, False)
