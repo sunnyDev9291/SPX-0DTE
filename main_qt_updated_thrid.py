@@ -142,7 +142,7 @@ class TradingAppQt(QWidget):
             
     def update_vix(self, price):
         self.current_vix_value_label.setText(f"{price:.2f}")
-        if price < float(self.yesterday_vix_value_label.text()):
+        if price > float(self.yesterday_vix_value_label.text()):
             self.trade_flag1 = True
         else:
             self.trade_flag1 = False
@@ -150,7 +150,8 @@ class TradingAppQt(QWidget):
     
     
     def update_buy_strike_price(self,price):
-        self.buy_labels[1].setText(f"{price:.2f}")
+        # self.buy_labels[1].setText(f"{price:.2f}")
+        pass
 
     def update_put_buy_strike_price(self,price):
         self.put_buy_labels[1].setText(f"{price:.2f}")   
@@ -158,11 +159,13 @@ class TradingAppQt(QWidget):
         self.put_sell_labels[1].setText(f"{lower_price:.2f}")    
     
     def update_sell_strike_price(self,price):
-        self.sell_labels[1].setText(f"{price:.2f}")
+        pass
+        # self.sell_labels[1].setText(f"{price:.2f}")
 
     def buy_option_update(self,ticker):
-        self.buy_labels[2].setText(f"{ticker[0]:.2f}")
-        self.buy_labels[3].setText(f"{ticker[1]:.2f}")
+        pass
+        # self.buy_labels[2].setText(f"{ticker[0]:.2f}")
+        # self.buy_labels[3].setText(f"{ticker[1]:.2f}")
         # try:
         #     spread_bid = ticker[0] - float(self.sell_labels[3].text()) + float(self.put_buy_labels[2].text())
         #     self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
@@ -179,8 +182,9 @@ class TradingAppQt(QWidget):
         # except Exception as e:
         #     pass
     def sell_option_update(self,ticker):
-        self.sell_labels[2].setText(f"{ticker[0]:.2f}")
-        self.sell_labels[3].setText(f"{ticker[1]:.2f}")
+        pass
+        # self.sell_labels[2].setText(f"{ticker[0]:.2f}")
+        # self.sell_labels[3].setText(f"{ticker[1]:.2f}")
         # try:
         #     spread_bid = float(self.buy_labels[2].text()) - ticker[1] + float(self.put_buy_labels[2].text())
         #     self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
@@ -589,24 +593,24 @@ class TradingAppQt(QWidget):
         self.table_layout.addWidget(header_widget)
         
         # Table Rows
-        buy_data = ("Call Buy", "", "", "")
-        sell_data = ("Call Sell(30 ↑)", "", "", "")
+        # buy_data = ("Call Buy", "", "", "")
+        # sell_data = ("Call Sell(30 ↑)", "", "", "")
         put_buy_data = ("Put sell(delta -0.25)", "", "", "")
         put_sell_data = ("Put buy( -50 ↓)", "", "", "")
         call_spread = ("Final Spread", "", "", "")
 
-        buy_layout, buy_labels = self.create_trade_row(buy_data, is_odd=False)
-        sell_layout, sell_labels = self.create_trade_row(sell_data, is_odd=False)
+        # buy_layout, buy_labels = self.create_trade_row(buy_data, is_odd=False)
+        # sell_layout, sell_labels = self.create_trade_row(sell_data, is_odd=False)
         put_buy_layout, put_buy_labels = self.create_trade_row(put_buy_data, is_odd=False)
         put_sell_layout, put_sell_labels = self.create_trade_row(put_sell_data, is_odd=False)
         call_spread_layout, call_spread_labels = self.create_trade_row(call_spread, is_odd=False)
-        self.buy_labels = buy_labels
-        self.sell_labels = sell_labels
+        # self.buy_labels = buy_labels
+        # self.sell_labels = sell_labels
         self.put_buy_labels = put_buy_labels
         self.put_sell_labels = put_sell_labels
         self.call_spread_labels = call_spread_labels
-        self.table_layout.addWidget(buy_layout)
-        self.table_layout.addWidget(sell_layout)
+        # self.table_layout.addWidget(buy_layout)
+        # self.table_layout.addWidget(sell_layout)
         self.table_layout.addWidget(put_buy_layout)
         self.table_layout.addWidget(put_sell_layout)
         self.table_layout.addWidget(call_spread_layout)
@@ -856,9 +860,9 @@ async def fetch_data(ui,mode, loop):
     
     try : 
         if mode == 1 : 
-            await ib.connectAsync('127.0.0.1', 7496, clientId=1)
+            await ib.connectAsync('127.0.0.1', 7496, clientId=2)
         if mode == 2 : 
-            await ib.connectAsync('127.0.0.1', 7497, clientId=1)
+            await ib.connectAsync('127.0.0.1', 7497, clientId=2)
             print("start")
         if ib.isConnected : 
             connected = True
