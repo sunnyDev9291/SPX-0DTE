@@ -1,5 +1,6 @@
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,time
+
 from timeit import Timer
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                              QGridLayout, QLabel, QLineEdit, QPushButton, 
@@ -7,11 +8,9 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QPoint,pyqtSignal, QObject,QThread
 import asyncio
-from datetime import datetime, timedelta
-
 import platform
 from ib_insync import IB, Option, Index, MarketOrder, ComboLeg, Contract, LimitOrder, OrderStatus
-import time
+
 import pandas as pd
 import threading
 import numpy
@@ -21,9 +20,16 @@ connected = False
 ib = IB()
 buy_option_contract = None
 sell_option_contract = None
+buy2_option_contract = None
 sell_option_detail = None
 buy_option_detail = None
+buy2_option_detail = None
 put_buy_option_detail = None
+
+is_trading_time = False
+unseen_highest_price = 0
+over_highest = False
+
 
 if platform.system() == 'Windows':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -35,10 +41,12 @@ class PriceUpdateSignal(QObject):
     ema_spx = pyqtSignal(float)
     buy_strike_price = pyqtSignal(int)
     sell_strike_price = pyqtSignal(int)
+    buy2_strike_price = pyqtSignal(int)
     put_buy_strike_price = pyqtSignal(int)
     buy_option_updated = pyqtSignal(tuple)
     sell_option_updated = pyqtSignal(tuple)
     put_option_updated =  pyqtSignal(tuple)
+    buy2_option_updated =  pyqtSignal(tuple)
 
 class TwoRadioDialog(QDialog):
     def __init__(self, parent=None):
@@ -121,6 +129,9 @@ class TradingAppQt(QWidget):
         self.signals.buy_option_updated.connect(self.buy_option_update)
         self.signals.sell_option_updated.connect(self.sell_option_update)
         self.signals.put_option_updated.connect(self.put_option_update)
+        self.signals.buy2_strike_price.connect(self.update_buy2_strike_price)
+        self.signals.buy2_option_updated.connect(self.buy2_option_update)
+
     def show_yesterday_close(self,price):
         self.yesterday_vix_value_label.setText(f"{price:.2f}")
 
@@ -128,17 +139,42 @@ class TradingAppQt(QWidget):
         self.spx_ema_value_label.setText(f"{price:.2f}")
 
     def update_spx(self, price):
+        global is_trading_time
         self.current_spx_value_label.setText(f"{price:.2f}")
-        if self.spx_ema_value_label.text() != " " and hasattr(self, 'trade_flag1'):
-            if float(self.current_spx_value_label.text()) > float(self.spx_ema_value_label.text()) and self.trade_flag1 == True:
-                self.trading_flag_label.setText("Trading flag : <b style='color:#43B581;'>Please trade</b>")
-            else:
-                self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>Don't trade</b>")
+        # if self.spx_ema_value_label.text() != " " and hasattr(self, 'trade_flag1'):
+        #     if float(self.current_spx_value_label.text()) > float(self.spx_ema_value_label.text()) and self.trade_flag1 == True:
+        #         self.trading_flag_label.setText("Trading flag : <b style='color:#43B581;'>Please trade</b>")
+        #     else:
+        #         self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>Don't trade</b>")
+        if is_trading_time == False:
+            self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>Now is outside 10:45 - 11:15</b>")
+        else:
+            if self.yesterday_vix_value_label.text() != " " and self.spx_ema_value_label.text() !=" ": 
+                highest_price = float(self.yesterday_vix_value_label.text())
+                sma_price = float(self.spx_ema_value_label.text())
+                print(f"price:{price}, highest price : {highest_price}")
+                global unseen_highest_price,over_highest
+                print("gloabl",unseen_highest_price)
+                
+                if unseen_highest_price > highest_price or price > highest_price:
+                    over_highest = True
+                
+                if over_highest == True : 
+                    if price > sma_price:
+                        self.trading_flag_label.setText("Trading flag : <b style='color:#43B581;'>Please trade</b>")
+                    else:
+                        self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>don't trade, Currenct SPX is under 3 Day's SMA</b>")
+                else:
+                    self.trading_flag_label.setText("Trading flag : <b style='color:#ED4245;'>don't trade, Currenct SPX is under highest price yet</b>")
+                
+
+        
             
 
 
     def update_vix(self, price):
-        self.current_vix_value_label.setText(f"{price:.2f}")
+        pass
+        # self.current_vix_value_label.setText(f"{price:.2f}")
         # print("-->",self.yesterday_vix_value_label.text())
         # if price < float(self.yesterday_vix_value_label.text()):
         #     self.trade_flag1 = True
@@ -147,9 +183,13 @@ class TradingAppQt(QWidget):
     
     def update_buy_strike_price(self,price):
         self.buy_labels[1].setText(f"{price:.2f}")
+    
+    def update_buy2_strike_price(self,price):
+        self.buy2_labels[1].setText(f"{price:.2f}")
 
     def update_put_buy_strike_price(self,price):
-        self.put_buy_labels[1].setText(f"{price:.2f}")    
+        pass
+        # self.put_buy_labels[1].setText(f"{price:.2f}")    
     
     def update_sell_strike_price(self,price):
         self.sell_labels[1].setText(f"{price:.2f}")
@@ -159,10 +199,10 @@ class TradingAppQt(QWidget):
         self.buy_labels[2].setText(f"{ticker[0]:.2f}")
         self.buy_labels[3].setText(f"{ticker[1]:.2f}")
         try:
-            spread_bid = ticker[0] - float(self.sell_labels[3].text()) + float(self.put_buy_labels[2].text())
+            spread_bid = ticker[0] - float(self.sell_labels[3].text()) * 2 + float(self.buy2_labels[2].text())
             self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
 
-            spread_ask = ticker[1] - float(self.sell_labels[2].text()) + float(self.put_buy_labels[3].text())
+            spread_ask = ticker[1] - float(self.sell_labels[2].text()) * 2 + float(self.buy2_labels[3].text())
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
 
             arr = numpy.arange(spread_bid, spread_ask+0.05, 0.05)
@@ -180,14 +220,17 @@ class TradingAppQt(QWidget):
 
     def sell_option_update(self,ticker):
         # print(f"sell info : bid : {ticker[0]},ask : {ticker[1]}")
+        ticker = list(ticker)
+        if ticker[0]  == -1 : 
+            ticker[0] = ticker[1]
         self.sell_labels[2].setText(f"{ticker[0]:.2f}")
         self.sell_labels[3].setText(f"{ticker[1]:.2f}")
 
         try:
-            spread_bid = float(self.buy_labels[2].text()) - ticker[1] + float(self.put_buy_labels[2].text())
+            spread_bid = float(self.buy_labels[2].text()) - ticker[1] * 2 + float(self.buy2_labels[2].text())
             self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
 
-            spread_ask = float(self.buy_labels[3].text()) - ticker[0]  + float(self.put_buy_labels[3].text())
+            spread_ask = float(self.buy_labels[3].text()) - ticker[0] *2 + float(self.buy2_labels[3].text())
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
 
             arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
@@ -200,16 +243,43 @@ class TradingAppQt(QWidget):
             self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
         except Exception as e:
             pass
+
     
     def put_option_update(self,ticker):
-        self.put_buy_labels[2].setText(f"{ticker[0]:.2f}")
-        self.put_buy_labels[3].setText(f"{ticker[1]:.2f}")
+        pass
+        # self.put_buy_labels[2].setText(f"{ticker[0]:.2f}")
+        # self.put_buy_labels[3].setText(f"{ticker[1]:.2f}")
+
+        # try:
+        #     spread_bid = float(self.buy_labels[2].text()) - float(self.sell_labels[3].text()) + ticker[0]
+        #     self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
+
+        #     spread_ask = float(self.buy_labels[3].text()) - float(self.sell_labels[2].text()) + ticker[1]
+        #     self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
+
+        #     arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
+        #     mid_index = 0
+        #     if len(arr) % 2 != 0:
+        #         mid_index = len(arr) // 2
+        #     else:
+        #         mid_index = len(arr) // 2 - 1   
+        #     self.midpoint = midpoint = round(arr[mid_index],2)
+        #     self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
+        # except Exception as e:
+        #     pass
+
+    def buy2_option_update(self,ticker):
+        ticker = list(ticker)
+        if ticker[0]  == -1 : 
+            ticker[0] = ticker[1]
+        self.buy2_labels[2].setText(f"{ticker[0]:.2f}")
+        self.buy2_labels[3].setText(f"{ticker[1]:.2f}")
 
         try:
-            spread_bid = float(self.buy_labels[2].text()) - float(self.sell_labels[3].text()) + ticker[0]
+            spread_bid = float(self.buy_labels[2].text()) - float(self.sell_labels[3].text()) * 2 + ticker[0]
             self.call_spread_labels[2].setText(f"{spread_bid:.2f}")
 
-            spread_ask = float(self.buy_labels[3].text()) - float(self.sell_labels[2].text()) + ticker[1]
+            spread_ask = float(self.buy_labels[3].text()) - float(self.sell_labels[2].text()) * 2 + ticker[1]
             self.call_spread_labels[3].setText(f"{spread_ask:.2f}")
 
             arr = numpy.arange(spread_bid, spread_ask+0.050, 0.05)
@@ -222,6 +292,8 @@ class TradingAppQt(QWidget):
             self.current_net_price_label.setText(f"Midpoint price : {self.midpoint}")
         except Exception as e:
             pass
+
+
 
 
 
@@ -381,10 +453,10 @@ class TradingAppQt(QWidget):
         data_layout.setSpacing(10)
 
         labels_data = [
-            ("current VIX: "   , " "),
+            # ("current VIX: "   , " "),
             ("Highest Price: " , " "),
             ("Current SPX : "   , " "),
-            ("SPX SMA in 30 min", " ")
+            ("SPX SMA in 3 days", " ")
         ]
 
         for i, (text, value) in enumerate(labels_data):
@@ -400,9 +472,6 @@ class TradingAppQt(QWidget):
             if "SPX SMA" in text:
                 self.spx_ema_value_label = value_label
             data_layout.addWidget(value_label, i, 1, Qt.AlignLeft)  # type: ignore
-            
-            if "current VIX" in text:
-                self.current_vix_value_label = value_label
             if "Current SPX" in text:
                 self.current_spx_value_label = value_label
             if "Highest Price" in text:
@@ -600,6 +669,7 @@ class TradingAppQt(QWidget):
         self.old_pos = None
 
     def update_time(self):
+        global is_trading_time
         """Updates the time label with the current date and time."""
         current_time_str = "current time : " + QDateTime.currentDateTime().toString('hh:mm:ss AP MMMM dd, yyyy')
         self.current_time.setText(current_time_str)
@@ -608,6 +678,13 @@ class TradingAppQt(QWidget):
         status_color = "#43B581" if ib.isConnected() else "#ED4245"
         print(status_text)
         self.api_status.setText(f"API Status : <b style='color:{status_color};'>{status_text}</b>")
+        now = datetime.now().time()
+        start = time(10,45)
+        end = time(14,15)
+        if start <= now <= end : 
+            is_trading_time = True
+        else:
+            is_trading_time = False
 
     # def update_usd_portfolio(self):
     #     # Get USD portfolio value from IB account values
@@ -647,20 +724,24 @@ class TradingAppQt(QWidget):
         # Table Rows
         buy_data = ("Buy 1x call ATM", "", "", "")
         sell_data = ("Sell 2x call(40 ↑)", "", "", "")
-        put_buy_data = ("Buy 1x call(80↑)", "", "", "")
+        # put_buy_data = ("put buy", "", "", "")
+        buy2_data = ("Buy 1x call(80↑)", "", "", "")
         call_spread = ("Final Spread", "", "", "")
 
         buy_layout, buy_labels = self.create_trade_row(buy_data, is_odd=False)
         sell_layout, sell_labels = self.create_trade_row(sell_data, is_odd=False)
-        put_buy_layout, put_buy_labels = self.create_trade_row(put_buy_data, is_odd=False)
+        buy2_layout, buy2_labels = self.create_trade_row(buy2_data, is_odd=False)
+        # put_buy_layout, put_buy_labels = self.create_trade_row(put_buy_data, is_odd=False)
         call_spread_layout, call_spread_labels = self.create_trade_row(call_spread, is_odd=False)
         self.buy_labels = buy_labels
         self.sell_labels = sell_labels
-        self.put_buy_labels = put_buy_labels
+        self.buy2_labels = buy2_labels
+        # self.put_buy_labels = put_buy_labels
         self.call_spread_labels = call_spread_labels
         self.table_layout.addWidget(buy_layout)
         self.table_layout.addWidget(sell_layout)
-        self.table_layout.addWidget(put_buy_layout)
+        # self.table_layout.addWidget(put_buy_layout)
+        self.table_layout.addWidget(buy2_layout)
         self.table_layout.addWidget(call_spread_layout)
 
         return table_frame
@@ -776,18 +857,18 @@ class TradingAppQt(QWidget):
                     print("Sell contract details not found!")
                     return
             
-            if put_buy_option_detail is not None:
-                if put_buy_option_detail and put_buy_option_detail[0].contract is not None:
-                    put_buy_leg = put_buy_option_detail[0].contract.conId
-                    print("put-->",put_buy_option_detail)
+            if buy2_option_detail is not None:
+                if buy2_option_detail and buy2_option_detail[0].contract is not None:
+                    buy2_leg = buy2_option_detail[0].contract.conId
+                    print("buy2-->",buy2_option_detail)
                 else:
-                    print("Put Buy contract details not found!")
+                    print("Buy2 contract details not found!")
                     return
                 
             legs = [
                 ComboLeg(conId=buy_leg, ratio=1, action='BUY', exchange='CBOE'),
-                ComboLeg(conId=sell_leg, ratio=1, action='SELL', exchange='CBOE'),
-                ComboLeg(conId=put_buy_leg, ratio=1, action='BUY', exchange='CBOE')
+                ComboLeg(conId=sell_leg, ratio=2, action='SELL', exchange='CBOE'),
+                ComboLeg(conId=buy2_leg, ratio=1, action='BUY', exchange='CBOE')
             ]
             combo = Contract()
             combo.symbol = 'SPX'
@@ -905,24 +986,66 @@ async def get_highest_spx_price(ib,contract):
         return highest_high
     return None
 
+async def get_unseen_highest_price(ib,contract):
+    now = datetime.now().time()
+    start = time(10,45)
+    today = datetime.today().date()
+    now_dt = datetime.combine(today, now)
+    start_dt = datetime.combine(today, start)
+
+    # Difference in seconds 
+    diff_seconds = int((now_dt - start_dt).total_seconds())
+
+    date_str = datetime.now().strftime('%Y%m%d')
+    print(date_str)
+    bars = await ib.reqHistoricalDataAsync(
+        contract,
+        endDateTime='',  # end time
+        durationStr=f'{diff_seconds} S',                   # 1 hour
+        barSizeSetting='1 min',
+        whatToShow='TRADES',
+        useRTH=True
+    )
+    print("bars:",bars)
+    if bars:
+        highest_high = float(max(bar.high for bar in bars))
+        print("Highest SPX High from (unseen) =", highest_high)
+        return highest_high
+    return None
+
+    
+    
+
+
+
+
+
 
 async def get_spx_ema(ib,contract):
-            spx_historical =await ib.reqHistoricalDataAsync(
-                contract,
-                endDateTime= datetime.now(),
-                barSizeSetting='1 min',
-                durationStr='3000 S',
-                whatToShow='TRADES',
-                useRTH=True
-            )
-            if spx_historical:
-                spx_df = pd.DataFrame({'price':[
-                    bar.close for bar in spx_historical
-                ]})
-                spx_df['ema'] = spx_df['price'].ewm(span=50, adjust=False).mean()
-                last_ema = spx_df['ema'].iloc[-1]
-                return last_ema
-            return None
+    spx_historical =await ib.reqHistoricalDataAsync(
+        contract,
+        endDateTime= datetime.now(),
+        barSizeSetting='1 min',
+        durationStr='3 D',
+        whatToShow='TRADES',
+        useRTH=True
+    )
+    if spx_historical:
+        spx_df = pd.DataFrame({'price': [bar.close for bar in spx_historical]})
+
+                # Compute SMA with a 3-day window in 1-min bars
+                # Number of minutes in 3 days: 3 * 24 * 60 = 4320
+        sma_window = 3 * 24 * 60  # 4320
+
+        spx_df['sma'] = spx_df['price'].rolling(window=sma_window, min_periods=1).mean()
+
+                # Get the most recent SMA value
+        last_sma = spx_df['sma'].iloc[-1]
+        return last_sma
+
+            # If there is no data, return None
+    return None
+
 
 def select_closest_around(lst, threshold, n):
     # Find all elements smaller than threshold
@@ -972,12 +1095,15 @@ async def fetch_data(ui,mode, loop):
         ticker_spx = ib.reqMktData(spx_contract)
         ticker_vix = ib.reqMktData(vix_contract)
         
-
+        global unseen_highest_price
         yesterday_close = await get_yesterday_close(ib, vix_contract)
         highest_spx_price = await get_highest_spx_price(ib,spx_contract)
+        unseen_highest_price = await get_unseen_highest_price(ib,spx_contract)
+
 
         print("yesterday closing price : ", yesterday_close)
         print("highest spx price : ", highest_spx_price)
+
         if highest_spx_price != None:
             ui.signals.yesterday_close.emit(highest_spx_price)
 
@@ -1015,16 +1141,19 @@ async def fetch_data(ui,mode, loop):
             asyncio.create_task(ema_spx_task())
         ticker_buy = None
         ticker_sell = None
+        ticker_buy2 = None
         async def strike_options_task(spx_price):
             
-            global buy_option_contract,sell_option_contract,buy_option_detail,sell_option_detail
-            nonlocal buy_strike_price,ticker_buy,ticker_sell,strikes
+            global buy_option_contract,sell_option_contract,buy_option_detail,sell_option_detail, buy2_option_contract, buy2_option_detail
+            nonlocal buy_strike_price,ticker_buy,ticker_sell,ticker_buy2,strikes
             # print(spx_price)
             today = datetime.now().strftime('%Y%m%d')
             if buy_strike_price != (round(spx_price / 5) * 5) :
                 print("__________ttt")
                 buy_strike_price = round(spx_price / 5) * 5
-                sell_strike_price = buy_strike_price  + 30
+                sell_strike_price = buy_strike_price  + 40
+                buy2_strike_price = buy_strike_price + 80
+
                 
                 buy_option_contract = Option(
                     symbol='SPX',
@@ -1040,20 +1169,33 @@ async def fetch_data(ui,mode, loop):
                     right='C',
                     exchange='CBOE'
                 )
+                buy2_option_contract = Option(
+                    symbol='SPX',
+                    lastTradeDateOrContractMonth=today,
+                    strike=buy2_strike_price,
+                    right='C',
+                    exchange='CBOE'
+                )
                 buy_option_detail = await ib.reqContractDetailsAsync(buy_option_contract)
                 sell_option_detail = await ib.reqContractDetailsAsync(sell_option_contract)
+                buy2_option_detail = await ib.reqContractDetailsAsync(buy2_option_contract)
                 await ib.qualifyContractsAsync(buy_option_contract)
                 await ib.qualifyContractsAsync(sell_option_contract)
-                if ticker_buy is not None and ticker_sell is not None:
+                await ib.qualifyContractsAsync(buy2_option_contract)
+                if ticker_buy is not None and ticker_sell is not None and ticker_buy2 is not None:
                     ticker_buy.updateEvent.clear()
                     ticker_sell.updateEvent.clear()
+                    ticker_buy2.updateEvent.clear()
                 ticker_buy = ib.reqMktData(buy_option_contract)
                 ticker_sell = ib.reqMktData(sell_option_contract)
+                ticker_buy2 = ib.reqMktData(buy2_option_contract)
                 ticker_buy.updateEvent += on_buy_update
                 ticker_sell.updateEvent += on_sell_update
+                ticker_buy2.updateEvent += on_buy2_update
 
                 ui.signals.buy_strike_price.emit(buy_strike_price)
                 ui.signals.sell_strike_price.emit(sell_strike_price)
+                ui.signals.buy2_strike_price.emit(buy2_strike_price)
 
         last_delta = dict()
         ticker_put = dict()
@@ -1156,6 +1298,8 @@ async def fetch_data(ui,mode, loop):
             ui.signals.buy_option_updated.emit((ticker.bid,ticker.ask))
         def on_sell_update(ticker):
             ui.signals.sell_option_updated.emit((ticker.bid,ticker.ask))
+        def on_buy2_update(ticker):
+            ui.signals.buy2_option_updated.emit((ticker.bid, ticker.ask))
         ticker_spx.updateEvent += on_spx_update
         ticker_vix.updateEvent += on_vix_update
 
