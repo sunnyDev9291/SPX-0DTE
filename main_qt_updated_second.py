@@ -1,4 +1,3 @@
-
 import sys
 from datetime import datetime, timedelta
 from timeit import Timer
@@ -17,15 +16,8 @@ import pandas as pd
 import threading
 import numpy
 import bisect
-#complte
-
-
-
-
-
 
 connected = False
-
 ib = IB()
 buy_option_contract = None
 sell_option_contract = None
@@ -33,11 +25,8 @@ sell_option_detail = None
 buy_option_detail = None
 put_buy_option_detail = None
 
-
 if platform.system() == 'Windows':
-    # pass
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 
 class PriceUpdateSignal(QObject):
     spx_price_updated = pyqtSignal(float)
@@ -51,18 +40,12 @@ class PriceUpdateSignal(QObject):
     sell_option_updated = pyqtSignal(tuple)
     put_option_updated =  pyqtSignal(tuple)
 
-
-
-
 class TwoRadioDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Where are you going to trade?")
         self.resize(300, 150)
         self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
-        # Remove help button if possible (commented out if not available)
-        # self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        # Apply black beautiful style
         self.setStyleSheet('''
             QDialog {
                 background-color: #23272A;
@@ -95,24 +78,19 @@ class TwoRadioDialog(QDialog):
             }
         ''')
         layout = QVBoxLayout(self)
-
         self.radio1 = QRadioButton("In Live account")
         self.radio2 = QRadioButton("In Paper account")
         self.radio1.setChecked(True)  # Default selection
-
         layout.addWidget(self.radio1)
         layout.addWidget(self.radio2)
-
         self.ok_btn = QPushButton("OK")
         self.ok_btn.clicked.connect(self.accept)
         layout.addWidget(self.ok_btn)
-
     def selected_option(self):
         if self.radio1.isChecked():
             return 1
         elif self.radio2.isChecked():
             return 2
-
 
 class WaitingDialog(QDialog):
     def __init__(self, parent=None):
@@ -126,8 +104,6 @@ class WaitingDialog(QDialog):
         layout.addWidget(label)
         self.setFixedSize(300, 40)
         
-
-
 class TradingAppQt(QWidget):
     def __init__(self):
         super().__init__()
@@ -141,24 +117,17 @@ class TradingAppQt(QWidget):
         self.signals.ema_spx.connect(self.show_ema_spx)
         self.signals.buy_strike_price.connect(self.update_buy_strike_price)
         self.signals.sell_strike_price.connect(self.update_sell_strike_price)
-        
         self.signals.put_buy_strike_price.connect(self.update_put_buy_strike_price)
-        
-
         self.signals.buy_option_updated.connect(self.buy_option_update)
         self.signals.sell_option_updated.connect(self.sell_option_update)
         self.signals.put_option_updated.connect(self.put_option_update)
     def show_yesterday_close(self,price):
-        # print("yesterday_closing_price", price)
         self.yesterday_vix_value_label.setText(f"{price:.2f}")
 
     def show_ema_spx(self,price):
-        # print("ema_price", price)
         self.spx_ema_value_label.setText(f"{price:.2f}")
 
     def update_spx(self, price):
-        # self.spx_label.setText(f"SPX Price: {price}")
-        # print("spx : ",price)
         self.current_spx_value_label.setText(f"{price:.2f}")
         if self.spx_ema_value_label.text() != " " and hasattr(self, 'trade_flag1'):
             if float(self.current_spx_value_label.text()) > float(self.spx_ema_value_label.text()) and self.trade_flag1 == True:
@@ -169,24 +138,19 @@ class TradingAppQt(QWidget):
 
 
     def update_vix(self, price):
-        # print("vix : ", price)
         self.current_vix_value_label.setText(f"{price:.2f}")
         if price < float(self.yesterday_vix_value_label.text()):
             self.trade_flag1 = True
         else:
             self.trade_flag1 = False
-        
-
-
+    
     def update_buy_strike_price(self,price):
-        # print("buy strike price : ", price)
         self.buy_labels[1].setText(f"{price:.2f}")
 
     def update_put_buy_strike_price(self,price):
         self.put_buy_labels[1].setText(f"{price:.2f}")    
     
     def update_sell_strike_price(self,price):
-        # print("sell strike price : ", price)
         self.sell_labels[1].setText(f"{price:.2f}")
 
     def buy_option_update(self,ticker):
